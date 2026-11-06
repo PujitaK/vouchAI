@@ -5,6 +5,7 @@ import { clsx } from "clsx";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StickyNote } from "@/components/ui/StickyNote";
+import { ClampedMiniMarkdown } from "@/lib/miniMarkdown";
 import type { Belief } from "@/lib/types";
 
 const focusRing =
@@ -50,7 +51,10 @@ export function BeliefNotes({
               <p className="font-mono text-[10px] uppercase tracking-widest text-text-secondary">
                 After round {belief.after_round}
               </p>
-              <p className="mt-2 whitespace-pre-line">{belief.text}</p>
+              <ClampedMiniMarkdown
+                text={belief.text}
+                className="mt-2 text-sm leading-6 text-text-primary"
+              />
             </StickyNote>
           ))}
         </div>

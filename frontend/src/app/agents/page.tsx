@@ -60,7 +60,8 @@ export default function AgentsPage() {
           Agents
         </h1>
         <p className="mt-5 text-lg leading-8 text-text-secondary">
-          Twelve agents. Healthy on paper. Not all of them are.
+          {agents.length} {agents.length === 1 ? "agent" : "agents"}. Healthy
+          on paper. Not all of them are.
         </p>
       </header>
 

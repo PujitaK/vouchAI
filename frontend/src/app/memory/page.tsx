@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusDot } from "@/components/ui/StatusDot";
 import { getOnRows, getRetainedOnRows } from "@/lib/aggregate";
+import { ClampedMiniMarkdown } from "@/lib/miniMarkdown";
 import { useRun } from "@/lib/useRun";
 
 const focusRing =
@@ -97,9 +98,10 @@ export default function MemoryPage() {
                     tilt={index % 2 === 0 ? "left" : "right"}
                     className="mt-3"
                   >
-                    <p className="whitespace-pre-line text-sm leading-6 text-text-primary">
-                      {belief.text}
-                    </p>
+                    <ClampedMiniMarkdown
+                      text={belief.text}
+                      className="text-sm leading-6 text-text-primary"
+                    />
                   </Card>
                 </div>
               ))}
