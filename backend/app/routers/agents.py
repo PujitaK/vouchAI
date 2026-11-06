@@ -43,6 +43,7 @@ def _loan_out(loan: Loan) -> LoanOut:
         decision=loan.decision,
         rationale=loan.rationale,
         status=loan.status,
+        identity_blocked=(loan.rationale or "").startswith("Identity gate:"),
         memory_used=loan.memory_used,
         memory_facts=memory_facts,
         created_at=loan.created_at,

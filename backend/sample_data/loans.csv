@@ -1,0 +1,7 @@
+agent,principal,category,amount,outcome
+crawler-01,ApexAI,data-scraping,250.00,repaid
+summarizer-05,LedgerLeaf,report-writing,300.00,repaid
+scraper-07,NovaOps,data-scraping,400.00,defaulted
+summarizer-12,NovaOps,report-writing,350.00,defaulted
+flawed-record,LedgerLeaf,code-review,-50.00,unrecognized
+scraper07,ApexAI,data-scraping,200.00,repaid

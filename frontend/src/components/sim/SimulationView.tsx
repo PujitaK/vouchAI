@@ -100,7 +100,7 @@ export function SimulationView({ run }: SimulationViewProps) {
       </div>
 
       <footer className="border-t-2 border-navy pt-4 font-mono text-xs tracking-wide text-text-secondary">
-        Memory by Hindsight. Coordinated with Band.
+        Memory by Hindsight.
       </footer>
     </div>
   );

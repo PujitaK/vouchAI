@@ -22,10 +22,16 @@ const headCell =
 
 const bodyCell = "border-b border-navy/20 px-3 py-3";
 
-function readRun(): Run {
+function readRun(): Run | null {
   const filePath = path.join(process.cwd(), "public", "cached_run.json");
-
-  return JSON.parse(fs.readFileSync(filePath, "utf8")) as Run;
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+  try {
+    return JSON.parse(fs.readFileSync(filePath, "utf8")) as Run;
+  } catch {
+    return null;
+  }
 }
 
 function outcomeLabel(row: RunRow): string {
@@ -49,7 +55,15 @@ function outcomeClass(row: RunRow): string {
 }
 
 export function generateStaticParams() {
-  return getAgentNames(readRun()).map((name) => ({ name }));
+  const run = readRun();
+  if (!run) {
+    return [{ name: "_placeholder" }];
+  }
+  const names = getAgentNames(run);
+  if (names.length === 0) {
+    return [{ name: "_placeholder" }];
+  }
+  return names.map((name) => ({ name }));
 }
 
 export default async function AgentDetailPage({
@@ -59,6 +73,9 @@ export default async function AgentDetailPage({
 }) {
   const { name } = await params;
   const run = readRun();
+  if (!run) {
+    notFound();
+  }
   const summary = getAgentSummary(run, name);
 
   if (!summary) {

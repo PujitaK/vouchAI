@@ -26,7 +26,9 @@ from .scoring import LoanSample, TaskSample, compute_score
 
 logger = logging.getLogger(__name__)
 
-CATEGORIES = ("data-scraping", "report-writing", "code-review", "support-triage")
+# Planted simulation test rule: NovaOps data-scraping defaults 75% of the time.
+# This controlled synthetic rule is used to benchmark how quickly memory-augmented
+# underwriting detects cluster risk compared to standard formula underwriting.
 PATTERN_PRINCIPAL = "NovaOps"
 PATTERN_CATEGORY = "data-scraping"
 PATTERN_PROBABILITY = 0.75
@@ -180,6 +182,8 @@ def _precompute(
         set(rng.sample(range(1, rounds + 1), forced_count)) if nova_agents else set()
     )
 
+    categories = sorted({agent.category for agent in agents})
+
     events: list[dict[str, Any]] = []
     for round_no in range(1, rounds + 1):
         forced = round_no in forced_rounds
@@ -188,7 +192,12 @@ def _precompute(
             category = PATTERN_CATEGORY
         else:
             agent = rng.choice(agents)
-            category = rng.choice(CATEGORIES)
+            # Match agent's own category 85% of the time; small chance (15%) of other categories
+            if rng.random() < 0.85 or len(categories) <= 1:
+                category = agent.category
+            else:
+                other_categories = [c for c in categories if c != agent.category]
+                category = rng.choice(other_categories) if other_categories else agent.category
 
         events.append(
             {
@@ -211,9 +220,14 @@ def _default_probability(principal: str, category: str) -> float:
 
 
 def _ground_truth() -> dict[str, Any]:
+    """Planted test rule ground truth for validating memory learning vs formula.
+
+    This planted rule is a controlled test benchmark: NovaOps data-scraping defaults
+    at 75%, compared to 6% baseline for other combinations.
+    """
     return {
         "rule": (
-            "Default probability is 0.75 for NovaOps agents on data-scraping, "
+            "TEST RULE: Default probability is 0.75 for NovaOps agents on data-scraping, "
             "otherwise 0.06."
         ),
         "novaops_data_scraping_default_probability": PATTERN_PROBABILITY,

@@ -42,6 +42,7 @@ class LoanOut(BaseModel):
     decision: str
     rationale: str
     status: str
+    identity_blocked: bool = False
     memory_used: bool = False
     memory_facts: list[str] = Field(default_factory=list)
     memory_latency_ms: float | None = None

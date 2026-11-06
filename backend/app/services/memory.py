@@ -128,6 +128,7 @@ def retain_outcome(
                 bank_id=bank_id,
                 content=content,
                 context="loan outcome",
+                tags=[principal_name, category],
                 retain_async=retain_async,
             )
         ),
@@ -164,6 +165,7 @@ def retain_decision(
                 bank_id=bank_id,
                 content=content,
                 context="underwriting decision",
+                tags=[principal_name, category],
                 retain_async=retain_async,
             )
         ),
@@ -190,6 +192,8 @@ def recall_context(
             query=query,
             budget="low",
             max_tokens=1200,
+            tags=[principal_name, category],
+            tags_match="any",
         )
         results = getattr(response, "results", None) or []
         return [str(item.text) for item in results if getattr(item, "text", None)]

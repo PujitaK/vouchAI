@@ -9,10 +9,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from ..auth import verify_admin_key
 from ..db import get_db
 from ..models import Agent, Loan, utcnow
 from ..schemas import LoanOut, LoanRequest, LoanResolution
 from ..services import memory, underwriter
+from ..services.identity import check_identity
 from ..services.scoring import LoanSample, TaskSample, compute_score
 
 router = APIRouter(tags=["loans"])
@@ -34,11 +36,18 @@ def _loan_out(
     memory_latency_ms: float | None = None,
     llm_latency_ms: float | None = None,
     total_latency_ms: float | None = None,
+    identity_blocked: bool | None = None,
 ) -> LoanOut:
     try:
         memory_facts = json.loads(loan.memory_facts or "[]")
     except (TypeError, json.JSONDecodeError):
         memory_facts = []
+
+    is_blocked = (
+        identity_blocked
+        if identity_blocked is not None
+        else (loan.rationale or "").startswith("Identity gate:")
+    )
 
     return LoanOut(
         id=loan.id,
@@ -51,6 +60,7 @@ def _loan_out(
         decision=loan.decision,
         rationale=loan.rationale,
         status=loan.status,
+        identity_blocked=is_blocked,
         memory_used=loan.memory_used,
         memory_facts=memory_facts,
         memory_latency_ms=memory_latency_ms,
@@ -94,6 +104,35 @@ def create_loan(
         raise HTTPException(status_code=404, detail="Agent not found")
 
     started = time.perf_counter()
+
+    gate_result = check_identity(db, agent)
+    if not gate_result.passed:
+        rationale = f"Identity gate: {'; '.join(gate_result.reasons)}"
+        loan = Loan(
+            agent_id=agent.id,
+            requested_amount=payload.amount,
+            formula_limit=0.0,
+            final_limit=0.0,
+            multiplier=0.0,
+            decision="denied",
+            rationale=rationale,
+            status="denied",
+            memory_used=False,
+            memory_facts="[]",
+        )
+        db.add(loan)
+        db.commit()
+        db.refresh(loan)
+
+        total_latency_ms = (time.perf_counter() - started) * 1000.0
+        return _loan_out(
+            loan,
+            memory_latency_ms=0.0,
+            llm_latency_ms=0.0,
+            total_latency_ms=round(total_latency_ms, 1),
+            identity_blocked=True,
+        )
+
     breakdown = _score_for(agent)
 
     memory_facts: list[str] = []
@@ -153,7 +192,11 @@ def create_loan(
     )
 
 
-@router.post("/loans/{loan_id}/resolve", response_model=LoanOut)
+@router.post(
+    "/loans/{loan_id}/resolve",
+    response_model=LoanOut,
+    dependencies=[Depends(verify_admin_key)],
+)
 def resolve_loan(
     loan_id: int,
     payload: LoanResolution,

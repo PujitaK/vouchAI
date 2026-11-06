@@ -1,0 +1,12 @@
+agent,principal,category,success,amount,ts
+crawler-01,ApexAI,data-scraping,true,120.00,2026-03-01T10:00:00Z
+crawler-01,ApexAI,data-scraping,true,150.00,2026-03-02T11:00:00Z
+crawler-01,ApexAI,data-scraping,true,140.00,2026-03-03T09:30:00Z
+crawler-01,ApexAI,data-scraping,true,160.00,2026-03-04T14:15:00Z
+crawler-01,ApexAI,data-scraping,true,130.00,2026-03-05T16:00:00Z
+docu-writer,LedgerLeaf,report-writing,true,200.00,2026-03-01T12:00:00Z
+fresh-bot,NovaOps,data-scraping,true,80.00,2026-03-02T08:00:00Z
+fresh-bot,NovaOps,data-scraping,true,90.00,2026-03-03T08:30:00Z
+scraper07,ApexAI,data-scraping,true,110.00,2026-03-04T10:00:00Z
+bad-agent,LedgerLeaf,support-triage,invalid_bool,100.00,2026-03-05T12:00:00Z
+scraper-07,ApexAI,data-scraping,true,100.00,2026-03-05T13:00:00Z

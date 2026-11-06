@@ -1,6 +1,23 @@
+# Environment variables
 .env
-venv/
-node_modules/
+.env.local
+.env.*.local
+
+# Databases
 *.db
-__pycache__/
+backend/vouchai.db
+
+# Dependencies
+node_modules/
+.venv/
+venv/
+
+# Build and cache outputs
 .next/
+out/
+build/
+dist/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage

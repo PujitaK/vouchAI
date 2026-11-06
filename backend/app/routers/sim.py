@@ -8,8 +8,9 @@ import threading
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
+from ..auth import verify_admin_key
 from ..services import simulator
 
 logger = logging.getLogger(__name__)
@@ -68,7 +69,7 @@ def _worker(rounds: int, seed: int, fake: bool, run_id: str) -> None:
             _state["error"] = f"{type(exc).__name__}: {exc}"
 
 
-@router.post("/run")
+@router.post("/run", dependencies=[Depends(verify_admin_key)])
 def start_run(
     rounds: int = Query(40, ge=1, le=500),
     seed: int = Query(7),
