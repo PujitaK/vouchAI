@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Float, ForeignKey, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -62,6 +62,9 @@ class Loan(Base):
     requested_amount: Mapped[float] = mapped_column(Float, nullable=False)
     formula_limit: Mapped[float] = mapped_column(Float, nullable=False)
     final_limit: Mapped[float] = mapped_column(Float, nullable=False)
+    multiplier: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
+    memory_used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    memory_facts: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
     decision: Mapped[str] = mapped_column(String(20), nullable=False)
     rationale: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False)

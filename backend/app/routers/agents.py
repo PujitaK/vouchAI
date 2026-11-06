@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -25,6 +27,11 @@ def _score_for(agent: Agent):
 
 
 def _loan_out(loan: Loan) -> LoanOut:
+    try:
+        memory_facts = json.loads(loan.memory_facts or "[]")
+    except (TypeError, json.JSONDecodeError):
+        memory_facts = []
+
     return LoanOut(
         id=loan.id,
         agent_id=loan.agent_id,
@@ -32,9 +39,12 @@ def _loan_out(loan: Loan) -> LoanOut:
         requested_amount=loan.requested_amount,
         formula_limit=loan.formula_limit,
         final_limit=loan.final_limit,
+        multiplier=loan.multiplier,
         decision=loan.decision,
         rationale=loan.rationale,
         status=loan.status,
+        memory_used=loan.memory_used,
+        memory_facts=memory_facts,
         created_at=loan.created_at,
         resolved_at=loan.resolved_at,
     )

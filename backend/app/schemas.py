@@ -38,9 +38,15 @@ class LoanOut(BaseModel):
     requested_amount: float
     formula_limit: float
     final_limit: float
+    multiplier: float = 1.0
     decision: str
     rationale: str
     status: str
+    memory_used: bool = False
+    memory_facts: list[str] = Field(default_factory=list)
+    memory_latency_ms: float | None = None
+    llm_latency_ms: float | None = None
+    total_latency_ms: float | None = None
     created_at: datetime
     resolved_at: datetime | None
 
@@ -62,7 +68,23 @@ class AgentDetail(BaseModel):
 class LoanRequest(BaseModel):
     amount: float = Field(gt=0)
     purpose: str = Field(min_length=1, max_length=500)
+    use_memory: bool = True
+    bank_id: str = "vouchai-lender-main"
 
 
 class LoanResolution(BaseModel):
     outcome: Literal["repaid", "defaulted"]
+    bank_id: str = "vouchai-lender-main"
+
+
+class MemoryRecallOut(BaseModel):
+    agent_id: int
+    bank_id: str
+    facts: list[str]
+    latency_ms: float
+
+
+class MemoryBeliefsOut(BaseModel):
+    bank_id: str
+    beliefs: str
+    latency_ms: float

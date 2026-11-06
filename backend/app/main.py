@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .db import init_db
-from .routers import agents, loans
+from .routers import agents, loans, memory
 from .schemas import HealthOut
 
 
@@ -36,3 +36,4 @@ def health() -> HealthOut:
 
 app.include_router(agents.router)
 app.include_router(loans.router)
+app.include_router(memory.router)
