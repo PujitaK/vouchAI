@@ -1,19 +1,38 @@
+"use client";
+
+import { SimulationView } from "@/components/sim/SimulationView";
+import { Card } from "@/components/ui/Card";
+import { useRun } from "@/lib/useRun";
+
 export default function Home() {
-  return (
-    <section className="relative py-10 sm:py-20">
-      <div className="max-w-4xl">
-        <p className="font-mono text-xs uppercase tracking-[0.35em] text-[#017587]">
-          Underwriting ledger
-        </p>
-        <h1 className="mt-6 font-display text-5xl font-bold leading-[0.95] tracking-tight text-text-primary sm:text-7xl">
-          Credit that learns.
-        </h1>
-        <div className="mt-8 h-2 w-24 bg-accent" aria-hidden="true" />
-        <p className="mt-8 max-w-xl text-lg leading-8 text-text-secondary">
-          A side-by-side record of formula underwriting and memory-led
-          decisions.
-        </p>
+  const { run, loading, error } = useRun();
+
+  if (loading) {
+    return (
+      <div className="py-16 font-mono text-xs uppercase tracking-[0.2em] text-text-secondary">
+        LOADING LEDGER...
       </div>
-    </section>
-  );
+    );
+  }
+
+  if (!run) {
+    return (
+      <Card tilt="left" className="max-w-xl">
+        <p className="font-mono text-xs uppercase tracking-widest text-text-secondary">
+          Run unavailable
+        </p>
+        <p className="mt-3 text-sm leading-6 text-text-primary">
+          The cached run at{" "}
+          <span className="font-mono">/cached_run.json</span> could not be
+          loaded. Add the completed run to{" "}
+          <span className="font-mono">frontend/public/</span> and refresh.
+        </p>
+        {error ? (
+          <p className="mt-3 font-mono text-xs text-maroon">{error}</p>
+        ) : null}
+      </Card>
+    );
+  }
+
+  return <SimulationView key={run.run_id} run={run} />;
 }
