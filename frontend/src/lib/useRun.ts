@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 
+import { ADMIN_KEY_STORAGE_KEY } from "@/lib/useAdminKey";
 import type { Run, SimStatus } from "@/lib/types";
 
 const STATIC_RUN_PATH = "/cached_run.json";
 const DEFAULT_API_URL = "http://127.0.0.1:8000";
 const POLL_INTERVAL_MS = 1400;
+const LIVE_QUERY_PARAM = "live";
 
 export interface UseRunOptions {
   live?: boolean;
@@ -34,6 +36,23 @@ function errorMessage(error: unknown) {
     : "The simulation could not be loaded.";
 }
 
+function readAdminKey(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return (window.sessionStorage.getItem(ADMIN_KEY_STORAGE_KEY) ?? "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function getLiveAdminKey(): string | null {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  if (params.get(LIVE_QUERY_PARAM) !== "1") return null;
+  const adminKey = readAdminKey();
+  return adminKey.length > 0 ? adminKey : null;
+}
+
 async function fetchJson<T>(url: string, init: RequestInit): Promise<T> {
   const response = await fetch(url, { cache: "no-store", ...init });
   if (!response.ok) {
@@ -46,15 +65,17 @@ async function loadStaticRun(signal: AbortSignal): Promise<Run> {
   return fetchJson<Run>(STATIC_RUN_PATH, { signal });
 }
 
-async function loadLiveRun(signal: AbortSignal): Promise<Run> {
+async function loadLiveRun(signal: AbortSignal, adminKey: string): Promise<Run> {
   const apiUrl = (
     process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_URL
   ).replace(/\/+$/, "");
+  const headers = { "X-API-Key": adminKey };
 
   const started = await fetch(`${apiUrl}/sim/run`, {
     method: "POST",
     signal,
     cache: "no-store",
+    headers,
   });
 
   if (!started.ok && started.status !== 409) {
@@ -64,6 +85,7 @@ async function loadLiveRun(signal: AbortSignal): Promise<Run> {
   for (;;) {
     const status = await fetchJson<SimStatus>(`${apiUrl}/sim/status`, {
       signal,
+      headers,
     });
 
     if (status.state === "error") {
@@ -77,11 +99,10 @@ async function loadLiveRun(signal: AbortSignal): Promise<Run> {
     await wait(POLL_INTERVAL_MS);
   }
 
-  return fetchJson<Run>(`${apiUrl}/sim/cached`, { signal });
+  return fetchJson<Run>(`${apiUrl}/sim/cached`, { signal, headers });
 }
 
 export function useRun({ live }: UseRunOptions = {}): UseRunResult {
-  const liveMode = live ?? Boolean(process.env.NEXT_PUBLIC_API_URL);
   const [run, setRun] = useState<Run | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,21 +112,41 @@ export function useRun({ live }: UseRunOptions = {}): UseRunResult {
     const controller = new AbortController();
 
     async function load() {
+      let staticRun: Run | null = null;
+      let staticError: string | null = null;
+
       try {
-        const next = liveMode
-          ? await loadLiveRun(controller.signal)
-          : await loadStaticRun(controller.signal);
+        staticRun = await loadStaticRun(controller.signal);
+      } catch (caught) {
+        if (!isAbortError(caught)) {
+          staticError = errorMessage(caught);
+        }
+      }
+
+      if (cancelled) return;
+
+      if (staticRun) {
+        setRun(staticRun);
+        setError(null);
+      } else if (staticError) {
+        setError(staticError);
+      }
+      setLoading(false);
+
+      if (live === false) return;
+
+      const adminKey = getLiveAdminKey();
+      if (!adminKey) return;
+
+      try {
+        const liveRun = await loadLiveRun(controller.signal, adminKey);
         if (!cancelled) {
-          setRun(next);
+          setRun(liveRun);
           setError(null);
         }
       } catch (caught) {
-        if (!cancelled && !isAbortError(caught)) {
-          setError(errorMessage(caught));
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
+        if (!cancelled && !isAbortError(caught) && !staticRun) {
+          setError(staticError ?? errorMessage(caught));
         }
       }
     }
@@ -116,7 +157,7 @@ export function useRun({ live }: UseRunOptions = {}): UseRunResult {
       cancelled = true;
       controller.abort();
     };
-  }, [liveMode]);
+  }, [live]);
 
   return { run, loading, error };
 }

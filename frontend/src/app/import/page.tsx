@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { AdminKeyField } from "@/components/ui/AdminKeyField";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { LiveModeNotice } from "@/components/ui/LiveModeNotice";
+import { useAdminKey } from "@/lib/useAdminKey";
 
 interface RejectedRow {
   line: number;
@@ -16,6 +19,14 @@ interface ImportResult {
 }
 
 export default function ImportPage() {
+  if (!process.env.NEXT_PUBLIC_API_URL) {
+    return <LiveModeNotice />;
+  }
+
+  return <ImportContent />;
+}
+
+function ImportContent() {
   const [kind, setKind] = useState<"tasks" | "loans">("tasks");
   const [file, setFile] = useState<File | null>(null);
   const [replace, setReplace] = useState(false);
@@ -27,12 +38,18 @@ export default function ImportPage() {
   const apiUrl = (
     process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000"
   ).replace(/\/+$/, "");
-  const adminKey = process.env.NEXT_PUBLIC_ADMIN_KEY;
+  const { adminKey, setAdminKey } = useAdminKey();
 
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault();
     if (!file) {
       setError("Please choose a CSV file to upload.");
+      return;
+    }
+
+    const trimmedKey = adminKey.trim();
+    if (!trimmedKey) {
+      setError("Enter the admin key to import records");
       return;
     }
 
@@ -52,10 +69,9 @@ export default function ImportPage() {
     }
 
     const query = params.toString() ? `?${params.toString()}` : "";
-    const headers: Record<string, string> = {};
-    if (adminKey) {
-      headers["X-API-Key"] = adminKey;
-    }
+    const headers: Record<string, string> = {
+      "X-API-Key": trimmedKey,
+    };
 
     try {
       const response = await fetch(`${apiUrl}/import/${kind}${query}`, {
@@ -81,6 +97,12 @@ export default function ImportPage() {
 
   return (
     <div className="py-8 space-y-10">
+      <AdminKeyField
+        value={adminKey}
+        onChange={setAdminKey}
+        hint="Required to import records. Stored in this browser tab only."
+      />
+
       <header className="max-w-2xl">
         <p className="font-mono text-xs uppercase tracking-[0.35em] text-[#017587]">
           Data Ingestion

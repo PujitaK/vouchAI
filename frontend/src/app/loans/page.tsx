@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { formatMoney } from "@/components/sim/format";
+import { AdminKeyField } from "@/components/ui/AdminKeyField";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { LiveModeNotice } from "@/components/ui/LiveModeNotice";
 import { StatusDot, type DotStatus } from "@/components/ui/StatusDot";
 import { StickyNote } from "@/components/ui/StickyNote";
+import { useAdminKey } from "@/lib/useAdminKey";
 
 interface AgentSummary {
   id: number;
@@ -47,6 +50,14 @@ function getDotStatus(status: string): DotStatus {
 }
 
 export default function LiveLoanPage() {
+  if (!process.env.NEXT_PUBLIC_API_URL) {
+    return <LiveModeNotice />;
+  }
+
+  return <LiveLoanContent />;
+}
+
+function LiveLoanContent() {
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<number | null>(null);
   const [amount, setAmount] = useState<number>(200);
@@ -62,7 +73,7 @@ export default function LiveLoanPage() {
   const apiUrl = (
     process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000"
   ).replace(/\/+$/, "");
-  const adminKey = process.env.NEXT_PUBLIC_ADMIN_KEY;
+  const { adminKey, setAdminKey } = useAdminKey();
 
   useEffect(() => {
     async function loadAgents() {
@@ -126,16 +137,20 @@ export default function LiveLoanPage() {
   async function handleResolve(outcome: "repaid" | "defaulted") {
     if (!loan) return;
 
+    const trimmedKey = adminKey.trim();
+    if (!trimmedKey) {
+      setError("Enter the admin key to resolve loans");
+      return;
+    }
+
     setResolving(true);
     setError(null);
     setResolutionMessage(null);
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
+      "X-API-Key": trimmedKey,
     };
-    if (adminKey) {
-      headers["X-API-Key"] = adminKey;
-    }
 
     try {
       const res = await fetch(`${apiUrl}/loans/${loan.id}/resolve`, {
@@ -167,6 +182,12 @@ export default function LiveLoanPage() {
 
   return (
     <div className="py-8 space-y-10">
+      <AdminKeyField
+        value={adminKey}
+        onChange={setAdminKey}
+        hint="Required to resolve loans. Stored in this browser tab only."
+      />
+
       <header className="max-w-3xl">
         <p className="font-mono text-xs uppercase tracking-[0.35em] text-[#017587]">
           Real-Time Origination

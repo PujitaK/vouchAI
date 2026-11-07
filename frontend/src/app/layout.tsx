@@ -10,17 +10,22 @@ export const metadata: Metadata = {
     "A ledger of formula underwriting and memory-led credit decisions.",
 };
 
-const navItems = [
-  { href: "/", label: "Simulation" },
-  { href: "/agents", label: "Agents" },
-  { href: "/loans", label: "Live Loan" },
-  { href: "/import", label: "Import" },
-  { href: "/memory", label: "Memory" },
-];
-
 export default function RootLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
+  const liveEnabled = Boolean(process.env.NEXT_PUBLIC_API_URL);
+  const navItems = [
+    { href: "/", label: "Simulation" },
+    { href: "/agents", label: "Agents" },
+    ...(liveEnabled
+      ? [
+          { href: "/loans", label: "Live Loan" },
+          { href: "/import", label: "Import" },
+        ]
+      : []),
+    { href: "/memory", label: "Memory" },
+  ];
+
   return (
     <html lang="en">
       <body className="font-sans antialiased">
