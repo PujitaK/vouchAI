@@ -49,6 +49,13 @@ function getDotStatus(status: string): DotStatus {
   return "idle";
 }
 
+const WAKE_MESSAGE =
+  "Waking the server (free hosting sleeps when idle). Retrying...";
+const WAKE_TIMEOUT_MS = 8000;
+const WAKE_RETRIES = 4;
+const WAKE_DELAY_MS = 10000;
+const RETRYABLE_STATUSES = new Set([502, 503, 504]);
+
 export default function LiveLoanPage() {
   if (!process.env.NEXT_PUBLIC_API_URL) {
     return <LiveModeNotice />;
@@ -65,6 +72,7 @@ function LiveLoanContent() {
   const [useMemory, setUseMemory] = useState<boolean>(true);
 
   const [loading, setLoading] = useState(false);
+  const [waking, setWaking] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loan, setLoan] = useState<LoanOut | null>(null);
@@ -82,9 +90,7 @@ function LiveLoanContent() {
         if (!res.ok) throw new Error("Failed to load agents");
         const data: AgentSummary[] = await res.json();
         setAgents(data);
-        if (data.length > 0 && selectedAgentId === null) {
-          setSelectedAgentId(data[0].id);
-        }
+        setSelectedAgentId((current) => current ?? data[0]?.id ?? null);
       } catch (err: unknown) {
         setError(
           err instanceof Error
@@ -94,21 +100,71 @@ function LiveLoanContent() {
       }
     }
     void loadAgents();
-  }, [apiUrl, selectedAgentId]);
+  }, [apiUrl]);
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId);
+
+  async function fetchWithWakeRetry(
+    url: string,
+    init: RequestInit
+  ): Promise<Response> {
+    let lastError: unknown = null;
+    let lastStatus: number | null = null;
+
+    for (let attempt = 0; attempt <= WAKE_RETRIES; attempt += 1) {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(
+        () => controller.abort(),
+        WAKE_TIMEOUT_MS
+      );
+
+      try {
+        const res = await fetch(url, { ...init, signal: controller.signal });
+        window.clearTimeout(timeout);
+
+        if (!RETRYABLE_STATUSES.has(res.status)) {
+          return res;
+        }
+
+        lastStatus = res.status;
+        lastError = null;
+      } catch (err: unknown) {
+        window.clearTimeout(timeout);
+        lastError = err;
+        lastStatus = null;
+      }
+
+      if (attempt < WAKE_RETRIES) {
+        setWaking(true);
+        await new Promise((resolve) =>
+          window.setTimeout(resolve, WAKE_DELAY_MS)
+        );
+      }
+    }
+
+    if (lastError instanceof Error) {
+      throw lastError;
+    }
+    if (lastStatus !== null) {
+      throw new Error(
+        `Backend returned ${lastStatus} after retries. Please try again.`
+      );
+    }
+    throw new Error("Could not reach the backend after retries");
+  }
 
   async function handleApply(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedAgentId) return;
 
     setLoading(true);
+    setWaking(false);
     setError(null);
     setLoan(null);
     setResolutionMessage(null);
 
     try {
-      const res = await fetch(`${apiUrl}/loans/${selectedAgentId}`, {
+      const res = await fetchWithWakeRetry(`${apiUrl}/loans/${selectedAgentId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -118,6 +174,9 @@ function LiveLoanContent() {
           bank_id: "vouchai-lender-main",
         }),
       });
+
+      setWaking(false);
+      setError(null);
 
       const data = await res.json();
       if (!res.ok) {
@@ -130,6 +189,7 @@ function LiveLoanContent() {
         err instanceof Error ? err.message : "Error processing loan application"
       );
     } finally {
+      setWaking(false);
       setLoading(false);
     }
   }
@@ -287,10 +347,20 @@ function LiveLoanContent() {
             disabled={loading || !selectedAgentId}
             className="w-full"
           >
-            {loading ? "Evaluating Application..." : "Submit Loan Request"}
+            {loading
+              ? waking
+                ? "Waking Server..."
+                : "Evaluating Application..."
+              : "Submit Loan Request"}
           </Button>
 
-          {error && (
+          {waking && (
+            <div className="border border-[#b7791f] bg-[#fef3c7] p-4 font-mono text-xs text-[#7b341e]">
+              {WAKE_MESSAGE}
+            </div>
+          )}
+
+          {error && !waking && (
             <div className="border border-maroon bg-maroon/10 p-4 font-mono text-xs text-maroon">
               {error}
             </div>

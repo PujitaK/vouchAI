@@ -10,6 +10,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from ..auth import verify_admin_key
+from ..config import public_demo_enabled
+from ..cost_guard import enforce_cost_guard
 from ..db import get_db
 from ..models import Agent, Loan, utcnow
 from ..schemas import LoanOut, LoanRequest, LoanResolution
@@ -85,6 +87,7 @@ def list_loans(db: Session = Depends(get_db)) -> list[LoanOut]:
     "/loans/{agent_id}",
     response_model=LoanOut,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(enforce_cost_guard)],
 )
 def create_loan(
     agent_id: int,
@@ -104,6 +107,7 @@ def create_loan(
         raise HTTPException(status_code=404, detail="Agent not found")
 
     started = time.perf_counter()
+    public_demo = public_demo_enabled()
 
     gate_result = check_identity(db, agent)
     if not gate_result.passed:
@@ -138,7 +142,8 @@ def create_loan(
     memory_facts: list[str] = []
     memory_latency_ms: float | None = None
     if payload.use_memory:
-        memory.ensure_bank(payload.bank_id)
+        if not public_demo:
+            memory.ensure_bank(payload.bank_id)
         memory_facts, memory_latency_ms = memory.recall_context(
             payload.bank_id,
             agent.name,
@@ -172,7 +177,7 @@ def create_loan(
     db.commit()
     db.refresh(loan)
 
-    if payload.use_memory:
+    if payload.use_memory and not public_demo:
         memory.retain_decision(
             payload.bank_id,
             agent.name,

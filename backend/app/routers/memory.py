@@ -8,6 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from ..config import public_demo_enabled
+from ..cost_guard import enforce_cost_guard
 from ..db import get_db
 from ..models import Agent
 from ..schemas import MemoryBeliefsOut, MemoryRecallOut
@@ -22,7 +24,11 @@ BELIEF_QUESTION = (
 )
 
 
-@router.get("/recall", response_model=MemoryRecallOut)
+@router.get(
+    "/recall",
+    response_model=MemoryRecallOut,
+    dependencies=[Depends(enforce_cost_guard)],
+)
 def recall_memory(
     agent_id: int,
     bank_id: str = DEFAULT_BANK_ID,
@@ -36,7 +42,8 @@ def recall_memory(
     if agent is None:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    memory.ensure_bank(bank_id)
+    if not public_demo_enabled():
+        memory.ensure_bank(bank_id)
     facts, latency_ms = memory.recall_context(
         bank_id,
         agent.name,
@@ -51,12 +58,17 @@ def recall_memory(
     )
 
 
-@router.get("/beliefs", response_model=MemoryBeliefsOut)
+@router.get(
+    "/beliefs",
+    response_model=MemoryBeliefsOut,
+    dependencies=[Depends(enforce_cost_guard)],
+)
 def memory_beliefs(
     bank_id: str = DEFAULT_BANK_ID,
 ) -> MemoryBeliefsOut:
     started = time.perf_counter()
-    memory.ensure_bank(bank_id)
+    if not public_demo_enabled():
+        memory.ensure_bank(bank_id)
     beliefs = memory.reflect_beliefs(bank_id, BELIEF_QUESTION)
     latency_ms = (time.perf_counter() - started) * 1000.0
     return MemoryBeliefsOut(

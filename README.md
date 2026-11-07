@@ -74,6 +74,7 @@ python -m venv .venv
 # source .venv/bin/activate
 
 pip install -r requirements.txt
+# Seeding also runs automatically on first startup when the agents table is empty.
 python -m app.seed
 ```
 
@@ -113,7 +114,22 @@ NEXT_PUBLIC_ADMIN_KEY=your_secret_admin_key
 
 # Frontend API target
 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
+
+# Deployment safety
+# Comma-separated browser origins allowed to call the API.
+ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+# When true, public live-loan requests never write decisions or outcomes to Hindsight.
+PUBLIC_DEMO=false
+# In-process cost guard for live loan, /memory/recall, and /memory/beliefs.
+RATE_PER_MIN=8
+DAILY_CAP=300
 ```
+
+### Public Deployment Safety
+- **Admin writes:** `/import/*`, `/sim/run`, and `/loans/{id}/resolve` require `X-API-Key` when `ADMIN_KEY` is set.
+- **Read-only demo memory:** Set `PUBLIC_DEMO=true` to keep visitor-triggered live loans from retaining decisions or creating memory banks. Admin resolve/import flows can still write outcomes.
+- **Cost guard:** Live loan, `/memory/recall`, and `/memory/beliefs` are limited to `RATE_PER_MIN` requests per minute per client and `DAILY_CAP` requests per day. Set either value to `0` to disable that limit.
+- **Auto-seed:** The API seeds demo agents automatically on startup when the agents table is empty.
 
 ---
 
